@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-br" ng-app="listaTelefonica">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Ygor Evaldt">
+    <!-- bootstrap v3 -->
+    <link rel="stylesheet" href="./node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="./node_modules/bootstrap-icons/font/bootstrap-icons.css">
+    <!-- sweetAlert -->
+    <script src="./node_modules/sweetalert/dist/sweetalert.min.js"></script>
+    <!-- css -->
+    <link rel="stylesheet" href="./assets/css/style.css">
+    <!-- angularJS -->
+    <script src="./node_modules/angular/angular.js"></script>
+    <script type="module" src="./data/data.js"></script>
+
+    <script>
+        angular.module("listaTelefonica", []);
+        angular.module("listaTelefonica").controller("listaTelefonicaCtrl", function ($scope, $http) {
+            const baseUrl = "http://localhost:3000"
+
+            async function loadContacts() {
+                const response = await $http.get(`${baseUrl}/data/contact`);
+                $scope.contacts = response.data
+
+                $scope.$applyAsync();
+            }
+
+            async function loadOperators() {
+                const response = await $http.get(`${baseUrl}/data/operators`)
+                $scope.operators = response.data;
+
+                $scope.$applyAsync();
+            }
+
+            function resetForm() {
+                $scope.contactForm.$setPristine();
+                delete $scope.contact;
+
+                $scope.$apply();
+            }
+
+            $scope.contacts = new Array();
+            $scope.operators = new Array();
+
+            $scope.addNewContact = async function (contact) {
+                const response = await $http.post(`${baseUrl}/data/contact`, contact);
+
+                if (response.status != 201) {
+                    alert("Erro ao cadastrar novo contato");
+                    return
+                }
+
+                await loadContacts();
+                resetForm();
+            }
+
+            $scope.deleteSelectedContacts = async function (contacts) {
+                const expression = contact => contact.selected;
+                const contactsToDelete = contacts.filter(expression);
+
+                for (const contact of contactsToDelete) {
+                    await $http.delete(`${baseUrl}/data/contact/${contact.id}`)
+                }
+
+                await loadContacts();
+            }
+
+            $scope.isSelectedContact = function (contacts) {
+                expression = contact => contact.selected;
+                return contacts.some(expression);
+            }
+
+            $scope.selectAllContacts = function (contacts) {
+                contacts.forEach((contact) => {
+                    contact.selected = contact.selected ? false : true;
+                })
+            }
+
+            $scope.onInit = async function () {
+                await loadContacts();
+                await loadOperators();
+            }
+
+            $scope.onInit();
+        });
+    </script>
+
+    <title>Lista telefônica</title>
+</head>
+
+<body ng-controller="listaTelefonicaCtrl">
+    <main class="jumbotron">
+        <header>
+            <h1>Lista Telefônica</h1>
+        </header>
+        <section ng-switch="contacts.length">
+            <section ng-switch-when="0">
+                <h2 class="text-info">Nenhum contato cadastrado</h2>
+            </section>
+            <section class="table-responsive" ng-switch-default>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" ng-click="selectAllContacts(contacts)" title="Selecionar todos">
+                            </th>
+                            <th>Nome</th>
+                            <th>Telefône</th>
+                            <th class="text-center">Operadora</th>
+                            <th class="text-center">Data de cadastro</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="contact in contacts" ng-class="{'warning text-bold text-line-through': contact.selected}">
+                            <td>
+                                <input type="checkbox" ng-model="contact.selected">
+                            </td>
+                            <td ng-bind="contact.name"></td>
+                            <td ng-bind="contact.phone"></td>
+                            <td ng-bind="contact.operator.name" class="text-center"></td>
+                            <td ng-bind="contact.createdOn | date:'dd/MM/yyyy'" class="text-center"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </section>
+        <section class="container-inputs">
+            <form name="contactForm">
+                <input ng-model="contact.name" ng-required="true" class="form-control" type="text" name="name" placeholder="Nome">
+                <input ng-model="contact.phone" ng-required="true" class="form-control" type="text" name="phone" placeholder="Telefone">
+                <select ng-model="contact.operator" ng-options="operator.name group by operator.category for operator in operators" class="form-control">
+                    <option value="">Selecione uma operadora</option>
+                </select>
+            </form>
+            <section>
+                <section ng-show="contactForm.name.$invalid && contactForm.name.$dirty" class="alert alert-danger">
+                    O campo "Nome" é obrigatório.
+                </section>
+                <section ng-show="contactForm.phone.$invalid && contactForm.phone.$dirty" class="alert alert-danger">
+                    O campo "Telefone" é obrigatório
+                </section>
+            </section>
+            <div class="text-center">
+                <button ng-click="addNewContact(contact)" ng-disabled="contactForm.$invalid" class="btn btn-primary btn-block">Adicionar contato</button>
+                <button ng-click="deleteSelectedContacts(contacts)" ng-if="isSelectedContact(contacts)" class="btn btn-danger btn-block">Deletar selecionados</button>
+            </div>
+        </section>
+    </main>
+    <footer ng-include="'./components/footer.html'" class="text-center container-footer">
+    </footer>
+
+</body>
+
+</html>
